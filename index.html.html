@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Lý Bán Hàng & Danh Sách Hóa Đơn Khách Hàng</title>
+  <!-- Thư viện xuất Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background: #f4f6f9; padding: 20px; color: #333; }
+    h1 { text-align: center; margin-bottom: 20px; color: #2c3e50; }
+    
+    .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; flex-wrap: wrap; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); flex: 1; min-width: 340px; }
+    h2 { margin-bottom: 15px; color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px; font-size: 18px; }
+
+    .form-group { margin-bottom: 10px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    
+    button { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+    button:hover { background: #219150; }
+    button.btn-add-cart { background: #2980b9; }
+    button.btn-add-cart:hover { background: #1f6391; }
+    button.btn-qr { background: #008080; font-size: 14px; margin-top: 8px; }
+    button.btn-qr:hover { background: #006666; }
+    button.btn-edit { background: #f39c12; width: auto; padding: 4px 8px; font-size: 12px; margin-left: 2px; }
+    button.btn-edit:hover { background: #d68910; }
+    button.btn-print { background: #8e44ad; width: auto; padding: 4px 8px; font-size: 12px; margin-left: 2px; }
+    button.btn-print:hover { background: #71368a; }
+    button.btn-delete-order { background: #e74c3c; width: auto; padding: 4px 8px; font-size: 12px; margin-left: 2px; }
+    button.btn-delete-order:hover { background: #c0392b; }
+    button.btn-cancel-edit { background: #7f8c8d; margin-top: 5px; display: none; }
+    button.btn-danger { background: #e74c3c; width: auto; padding: 4px 8px; font-size: 12px; margin-left: 2px; }
+    button.btn-excel { background: #107c41; margin-bottom: 15px; }
+    button.btn-excel:hover { background: #0b5a2f; }
+    button.btn-toggle-paid { background: #16a085; width: auto; padding: 4px 8px; font-size: 12px; margin-left: 2px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
+    th { background: #f8f9fa; }
+    
+    .qty-btn { background: #ddd; color: #333; border: 1px solid #ccc; width: 24px; height: 26px; border-radius: 3px; cursor: pointer; font-weight: bold; }
+    .qty-input-box { width: 50px; text-align: center; padding: 3px; border: 1px solid #a0aec0; border-radius: 3px; font-size: 13px; font-weight: bold; }
+    .total-input-box { width: 95px; text-align: right; padding: 3px; border: 1px solid #a0aec0; border-radius: 3px; font-size: 13px; font-weight: bold; color: #c0392b; background: #fffdf5; }
+
+    .cust-info-box { background: #fdfaf3; padding: 10px; border-radius: 6px; border: 1px solid #f1e2c6; margin-bottom: 15px; }
+    .setting-box { background: #eef2f7; padding: 12px; border-radius: 6px; border: 1px solid #d0d7de; margin-bottom: 15px; }
+    
+    .stat-box { background: #f8f9fa; border-radius: 6px; padding: 10px; margin-bottom: 15px; border-left: 4px solid #27ae60; }
+    .stat-item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; }
+    .text-green { color: #27ae60; font-weight: bold; }
+    .text-red { color: #e74c3c; font-weight: bold; }
+    .text-blue { color: #2980b9; font-weight: bold; }
+
+    .order-item-card { background: #f9f9f9; border: 1px solid #eee; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+    .order-item-header { display: flex; justify-content: space-between; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+    .order-item-detail { font-size: 12px; color: #555; line-height: 1.4; }
+    
+    .editing-mode { border: 2px solid #f39c12 !important; background: #fffdf5 !important; }
+
+    .badge-unpaid { background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .badge-paid { background: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
+    /* Modal QR Code Popup */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-content { background: white; padding: 20px; border-radius: 12px; text-align: center; max-width: 420px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .qr-img { width: 280px; height: 280px; margin: 15px auto; display: block; border: 1px solid #ddd; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+  <h1>Quản Lý Bán Hàng & Danh Sách Hóa Đơn Khách Hàng</h1>
+
+  <div class="container">
+    
+    <!-- 1. CÀI ĐẶT TÀI KHOẢN NGÂN HÀNG & NHẬP SẢN PHẨM -->
+    <div class="card" id="product-card">
+      
+      <!-- Khung Cài Đặt Tài Khoản Ngân Hàng VietQR -->
+      <h2>⚙️ Cài Đặt Tài Khoản Ngân Hàng (Tạo QR In Bill)</h2>
+      <div class="setting-box">
+        <div class="form-group">
+          <label>Chọn Ngân hàng nhận tiền:</label>
+          <select id="set-bank-id">
+            <option value="MB">MBBank (Ngân hàng Quân Đội)</option>
+            <option value="VCB">Vietcombank (Ngoại Thương)</option>
+            <option value="TCB">Techcombank (Kỹ Thương)</option>
+            <option value="CTG">VietinBank (Công Thương)</option>
+            <option value="BIDV">BIDV (Đầu tư và Phát triển)</option>
+            <option value="ACB">ACB (Á Châu)</option>
+            <option value="VPB">VPBank (Việt Nam Thịnh Vượng)</option>
+            <option value="TPB">TPBank (Tiên Phong)</option>
+            <option value="STB">Sacombank (Sài Gòn Thương Tín)</option>
+            <option value="VIB">VIB (Quốc Tế)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Số tài khoản:</label>
+            <input type="text" id="set-bank-acc" placeholder="VD: 0984960860">
+          </div>
+          <div class="form-group">
+            <label>Tên chủ tài khoản:</label>
+            <input type="text" id="set-bank-name" placeholder="VD: NGUYEN TU ANH">
+          </div>
+        </div>
+        <button type="button" style="background: #2c3e50;" onclick="saveBankSettings()">💾 Lưu Cài Đặt Ngân Hàng</button>
+      </div>
+
+      <h2 id="product-form-title">1. Nhập Sản Phẩm Về Kho</h2>
+      <form id="product-form">
+        <div class="form-group">
+          <label>Tên sản phẩm</label>
+          <input type="text" id="p-name" required placeholder="VD: SMA">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Giá Niêm Yết (VNĐ)</label>
+            <input type="number" id="p-list-price" required placeholder="100000" oninput="calcCostPrice()">
+          </div>
+          <div class="form-group">
+            <label>% Chiết khấu nhập</label>
+            <input type="number" id="p-discount-in" value="60" placeholder="60" oninput="calcCostPrice()">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Giá nhập thực tế</label>
+            <input type="number" id="p-cost-price" readonly style="background: #e9ecef;">
+          </div>
+          <div class="form-group">
+            <label>Số lượng tồn kho</label>
+            <input type="number" id="p-stock" required placeholder="50">
+          </div>
+        </div>
+
+        <button type="submit" id="btn-save-product">Lưu Sản Phẩm Vào Kho</button>
+        <button type="button" id="btn-cancel-edit-product" class="btn-cancel-edit" onclick="cancelEditProduct()">✖ Hủy Sửa Sản Phẩm</button>
+      </form>
+
+      <h2 style="margin-top: 20px;">Danh Sách Tồn Kho</h2>
+      <table id="product-table">
+        <thead>
+          <tr>
+            <th>Tên sản phẩm</th>
+            <th>Giá Niêm Yết</th>
+            <th>CK Nhập</th>
+            <th>Giá Nhập</th>
+            <th>Tồn</th>
+            <th style="width: 100px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 2. KHU VỰC BÁN HÀNG POS -->
+    <div class="card" id="pos-card">
+      <h2 id="pos-title">2. Bán Hàng & Chọn Sản Phẩm</h2>
+      
+      <!-- Thông tin khách hàng -->
+      <div class="cust-info-box">
+        <label style="color: #b7791f; margin-bottom: 8px; display: block;">Thông Tin Khách Hàng:</label>
+        <div class="form-row">
+          <div class="form-group" style="flex: 0.8;">
+            <input type="text" id="c-id" placeholder="Mã KH" oninput="autoFillCustomerInfo()">
+          </div>
+          <div class="form-group" style="flex: 1.2;">
+            <input type="text" id="c-name" placeholder="Tên khách hàng (*)">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <input type="text" id="c-phone" placeholder="Số điện thoại">
+          </div>
+          <div class="form-group">
+            <input type="text" id="c-address" placeholder="Địa chỉ">
+          </div>
+        </div>
+      </div>
+
+      <!-- Chọn sản phẩm từ Menu Dropdown -->
+      <div class="form-group">
+        <label>Chọn sản phẩm từ kho:</label>
+        <select id="select-product" onchange="onSelectProductChange()">
+          <option value="">-- Chọn sản phẩm --</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>% Chiết khấu bán:</label>
+          <input type="number" id="sell-discount" value="43" placeholder="43" oninput="calcSellPriceByDiscount()">
+        </div>
+        <div class="form-group">
+          <label>Giá bán thực tế (VNĐ):</label>
+          <input type="number" id="sell-price-custom" placeholder="Tự động" oninput="calcDiscountBySellPrice()">
+        </div>
+        <div class="form-group" style="display: flex; align-items: flex-end;">
+          <button type="button" class="btn-add-cart" onclick="addSelectedToCart()">+ Thêm Giỏ</button>
+        </div>
+      </div>
+
+      <h2 style="margin-top: 20px;">Giỏ Hàng Đang Chọn</h2>
+      <table id="cart-table">
+        <thead>
+          <tr>
+            <th>Tên</th>
+            <th>CK Bán</th>
+            <th style="width: 110px; text-align: center;">SL</th>
+            <th>Thành tiền</th>
+            <th>Xóa</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 0;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #c0392b; font-weight: bold; font-size: 14px;">
+          <input type="checkbox" id="unpaid-checkbox" style="width: 18px; height: 18px; cursor: pointer;">
+          🚩 Đơn chưa thanh toán (Ghi nợ)
+        </label>
+        <div style="font-size: 16px; font-weight: bold; color: #e74c3c;">
+          Tổng thanh toán: <span id="cart-total">0</span> VNĐ
+        </div>
+      </div>
+
+      <!-- Nút xem nhanh Mã QR -->
+      <button type="button" class="btn-qr" onclick="generatePaymentQR()">📲 Xem Nhanh Mã QR Thanh Toán</button>
+
+      <button id="btn-checkout" style="background: #e67e22; font-size: 16px; margin-top: 10px;">Thanh Toán & Lưu Hóa Đơn</button>
+      <button id="btn-cancel-edit" class="btn-cancel-edit" onclick="cancelEditing()">✖ Hủy Sửa Đơn</button>
+    </div>
+
+    <!-- 3. DANH SÁCH HÓA ĐƠN KHÁCH HÀNG (TÍCH LŨY THEO KHÁCH HÀNG) -->
+    <div class="card">
+      <h2>3. Danh Sách Hóa Đơn Tích Lũy Theo Khách Hàng</h2>
+      
+      <div class="stat-box">
+        <div class="stat-item">
+          <span>Tổng Doanh Thu:</span>
+          <span id="total-revenue" class="text-blue">0 VNĐ</span>
+        </div>
+        <div class="stat-item">
+          <span>Tổng Chưa Thanh Toán (Nợ):</span>
+          <span id="total-unpaid" class="text-red">0 VNĐ</span>
+        </div>
+        <div class="stat-item">
+          <span>Tổng Giá Gốc Nhập:</span>
+          <span id="total-cost" style="color:#7f8c8d; font-weight:bold;">0 VNĐ</span>
+        </div>
+        <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+        <div class="stat-item" style="font-size: 15px;">
+          <span>Tổng Lợi Nhuận:</span>
+          <span id="total-profit" class="text-green">0 VNĐ</span>
+        </div>
+      </div>
+
+      <button id="btn-export-excel" class="btn-excel">📊 Xuất Báo Cáo Ra File Excel</button>
+      
+      <div class="form-row">
+        <div class="form-group" style="flex: 3;">
+          <input type="text" id="search-order" placeholder="🔍 Tìm theo Mã KH, Tên KH, SĐT..." oninput="renderOrdersList()">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <button type="button" style="background: #2980b9; margin-top: 0; padding: 8px;" onclick="renderOrdersList()">Tìm kiếm</button>
+        </div>
+      </div>
+
+      <div id="order-list-container" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- MODAL HIỂN THỊ MÃ QR CODE POPUP -->
+  <div id="qr-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="color: #2c3e50; margin-bottom: 5px;">Quét Mã QR Chuyển Khoản</h3>
+      <p id="qr-subtitle" style="font-size: 13px; color: #666;">Chuyển khoản chính xác số tiền cần thanh toán</p>
+      
+      <img id="qr-code-img" class="qr-img" src="" alt="Mã QR Chuyển Khoản VietQR">
+      
+      <div style="font-size: 14px; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 15px; line-height: 1.5;">
+        <b>Ngân hàng:</b> <span id="qr-bank-name">--</span><br>
+        <b>Số tài khoản:</b> <span id="qr-acc-num">--</span><br>
+        <b>Chủ tài khoản:</b> <span id="qr-acc-name">--</span><br>
+        <b>Số tiền:</b> <span id="qr-amount" style="color: #e74c3c; font-weight: bold;">0 VNĐ</span><br>
+        <b>Nội dung:</b> <span id="qr-memo" style="color: #2980b9; font-weight: bold;">(Để trống)</span>
+      </div>
+
+      <button type="button" style="background: #e74c3c;" onclick="closeQRModal()">Đóng Cửa Sổ</button>
+    </div>
+  </div>
+
+  <script>
+    let products = JSON.parse(localStorage.getItem('products_v13')) || [];
+    let orders = JSON.parse(localStorage.getItem('orders_v13')) || [];
+    let bankSettings = JSON.parse(localStorage.getItem('bankSettings_v1')) || {
+      bankId: 'MB',
+      accNum: '404704060282173',
+      accName: 'NGUYEN TU ANH'
+    };
+
+    let cart = [];
+    let editingOrderId = null;
+    let editingProductIndex = null;
+
+    const formatMoney = (amount) => new Intl.NumberFormat('vi-VN').format(amount);
+
+    function generateCustId() {
+      return 'KH' + Math.floor(1000 + Math.random() * 9000);
+    }
+    document.getElementById('c-id').value = generateCustId();
+
+    // CÀI ĐẶT NGÂN HÀNG VIETQR
+    function loadBankSettings() {
+      document.getElementById('set-bank-id').value = bankSettings.bankId;
+      document.getElementById('set-bank-acc').value = bankSettings.accNum;
+      document.getElementById('set-bank-name').value = bankSettings.accName;
+    }
+
+    function saveBankSettings() {
+      bankSettings.bankId = document.getElementById('set-bank-id').value;
+      bankSettings.accNum = document.getElementById('set-bank-acc').value.trim();
+      bankSettings.accName = document.getElementById('set-bank-name').value.trim();
+
+      if(!bankSettings.accNum) return alert('Vui lòng nhập Số tài khoản ngân hàng!');
+
+      localStorage.setItem('bankSettings_v1', JSON.stringify(bankSettings));
+      alert('Đã lưu thông tin Ngân hàng nhận tiền thành công!');
+    }
+
+    // TẠO MÃ QR CODE XEM NHANH (NỘI DUNG ĐỂ TRỐNG)
+    function generatePaymentQR() {
+      if (cart.length === 0) return alert('Giỏ hàng đang trống!');
+      let totalAmount = 0;
+      cart.forEach(item => totalAmount += item.sellPrice * item.qty);
+
+      const qrApiUrl = `https://img.vietqr.io/image/${bankSettings.bankId}-${bankSettings.accNum}-compact2.png?amount=${totalAmount}&addInfo=&accountName=${encodeURIComponent(bankSettings.accName)}`;
+
+      document.getElementById('qr-code-img').src = qrApiUrl;
+      document.getElementById('qr-bank-name').innerText = bankSettings.bankId;
+      document.getElementById('qr-acc-num').innerText = bankSettings.accNum;
+      document.getElementById('qr-acc-name').innerText = bankSettings.accName;
+      document.getElementById('qr-amount').innerText = formatMoney(totalAmount) + ' VNĐ';
+      document.getElementById('qr-memo').innerText = '(Để trống)';
+
+      document.getElementById('qr-modal').style.display = 'flex';
+    }
+
+    function closeQRModal() {
+      document.getElementById('qr-modal').style.display = 'none';
+    }
+
+    function calcCostPrice() {
+      const listPrice = parseFloat(document.getElementById('p-list-price').value) || 0;
+      const discountIn = parseFloat(document.getElementById('p-discount-in').value) || 0;
+      const costPrice = listPrice * (1 - discountIn / 100);
+      document.getElementById('p-cost-price').value = Math.round(costPrice);
+    }
+
+    // HÀM TÍNH TOÁN VÀ TÍNH NGƯỢC CHIẾT KHẤU BÁN
+    function onSelectProductChange() {
+      calcSellPriceByDiscount();
+    }
+
+    function calcSellPriceByDiscount() {
+      const pIndex = document.getElementById('select-product').value;
+      if (pIndex === "") return;
+      const product = products[pIndex];
+      const discountOut = parseFloat(document.getElementById('sell-discount').value) || 0;
+      const sellPrice = Math.round(product.listPrice * (1 - discountOut / 100));
+      document.getElementById('sell-price-custom').value = sellPrice;
+    }
+
+    function calcDiscountBySellPrice() {
+      const pIndex = document.getElementById('select-product').value;
+      if (pIndex === "") return;
+      const product = products[pIndex];
+      const customSellPrice = parseFloat(document.getElementById('sell-price-custom').value) || 0;
+      
+      if (product.listPrice > 0) {
+        const calculatedDiscount = Math.round((1 - customSellPrice / product.listPrice) * 100);
+        document.getElementById('sell-discount').value = calculatedDiscount;
+      }
+    }
+
+    function autoFillCustomerInfo() {
+      const custIdInput = document.getElementById('c-id').value.trim().toLowerCase();
+      if (!custIdInput) return;
+
+      const existingOrder = orders.find(o => o.custId && o.custId.toLowerCase() === custIdInput);
+
+      if (existingOrder) {
+        document.getElementById('c-name').value = existingOrder.customer;
+        document.getElementById('c-phone').value = existingOrder.phone;
+        document.getElementById('c-address').value = existingOrder.address;
+
+        document.getElementById('search-order').value = existingOrder.custId;
+        renderOrdersList();
+      }
+    }
+
+    // 1. Quản lý Sản phẩm Kho
+    function renderProducts() {
+      const productTable = document.querySelector('#product-table tbody');
+      const selectProduct = document.getElementById('select-product');
+      
+      productTable.innerHTML = '';
+      selectProduct.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+
+      products.forEach((p, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><b>${p.name}</b></td>
+          <td>${formatMoney(p.listPrice)}đ</td>
+          <td>${p.discountIn}%</td>
+          <td>${formatMoney(p.costPrice)}đ</td>
+          <td><b>${p.stock}</b></td>
+          <td>
+            <button class="btn-edit" onclick="editProduct(${index})">✏️ Sửa</button>
+            <button class="btn-danger" onclick="deleteProduct(${index})">🗑️ Xóa</button>
+          </td>
+        `;
+        productTable.appendChild(tr);
+
+        if (p.stock > 0) {
+          const opt = document.createElement('option');
+          opt.value = index;
+          opt.innerText = `${p.name} - Giá Niêm Yết: ${formatMoney(p.listPrice)}đ (Còn: ${p.stock})`;
+          selectProduct.appendChild(opt);
+        }
+      });
+
+      localStorage.setItem('products_v13', JSON.stringify(products));
+    }
+
+    document.getElementById('product-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('p-name').value.trim();
+      const listPrice = Number(document.getElementById('p-list-price').value);
+      const discountIn = Number(document.getElementById('p-discount-in').value);
+      const costPrice = Number(document.getElementById('p-cost-price').value);
+      const stock = Number(document.getElementById('p-stock').value);
+
+      if (editingProductIndex !== null) {
+        products[editingProductIndex] = { name, listPrice, discountIn, costPrice, stock };
+        alert(`Đã cập nhật sản phẩm "${name}" thành công!`);
+        cancelEditProduct();
+      } else {
+        const existingIndex = products.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+        if(existingIndex > -1) {
+          products[existingIndex].stock += stock;
+          products[existingIndex].listPrice = listPrice;
+          products[existingIndex].discountIn = discountIn;
+          products[existingIndex].costPrice = costPrice;
+        } else {
+          products.push({ name, listPrice, discountIn, costPrice, stock });
+        }
+        alert(`Đã thêm sản phẩm "${name}" vào kho!`);
+      }
+
+      document.getElementById('product-form').reset();
+      document.getElementById('p-discount-in').value = "60";
+      renderProducts();
+    });
+
+    function editProduct(index) {
+      const p = products[index];
+      editingProductIndex = index;
+
+      document.getElementById('p-name').value = p.name;
+      document.getElementById('p-list-price').value = p.listPrice;
+      document.getElementById('p-discount-in').value = p.discountIn;
+      document.getElementById('p-cost-price').value = p.costPrice;
+      document.getElementById('p-stock').value = p.stock;
+
+      document.getElementById('product-card').classList.add('editing-mode');
+      document.getElementById('product-form-title').innerText = `✏️ Đang Sửa Sản Phẩm: ${p.name}`;
+      document.getElementById('btn-save-product').innerText = '💾 Lưu Cập Nhật Sản Phẩm';
+      document.getElementById('btn-cancel-edit-product').style.display = 'block';
+    }
+
+    function cancelEditProduct() {
+      editingProductIndex = null;
+      document.getElementById('product-form').reset();
+      document.getElementById('p-discount-in').value = "60";
+
+      document.getElementById('product-card').classList.remove('editing-mode');
+      document.getElementById('product-form-title').innerText = '1. Nhập Sản Phẩm Về Kho';
+      document.getElementById('btn-save-product').innerText = 'Lưu Sản Phẩm Vào Kho';
+      document.getElementById('btn-cancel-edit-product').style.display = 'none';
+    }
+
+    function deleteProduct(index) {
+      if(confirm("Bạn có chắc chắn muốn xóa sản phẩm này khỏi kho?")) {
+        products.splice(index, 1);
+        renderProducts();
+      }
+    }
+
+    // 2. Thao tác Giỏ Hàng
+    function addSelectedToCart() {
+      const selectProduct = document.getElementById('select-product');
+      const pIndex = selectProduct.value;
+
+      if (pIndex === "") return alert("Vui lòng chọn sản phẩm!");
+
+      const product = products[pIndex];
+      const discountOut = parseFloat(document.getElementById('sell-discount').value) || 0;
+      let sellPrice = parseFloat(document.getElementById('sell-price-custom').value);
+
+      if (isNaN(sellPrice) || sellPrice < 0) {
+        sellPrice = Math.round(product.listPrice * (1 - discountOut / 100));
+      }
+
+      const cartItem = cart.find(item => item.productIndex == pIndex && item.sellPrice == sellPrice);
+
+      if (cartItem) {
+        if (cartItem.qty < product.stock) {
+          cartItem.qty++;
+        } else {
+          alert('Số lượng chọn vượt quá kho!');
+        }
+      } else {
+        cart.push({ 
+          productIndex: pIndex, 
+          name: product.name, 
+          listPrice: product.listPrice,
+          costPrice: product.costPrice, 
+          discountOut: discountOut,
+          sellPrice: sellPrice, 
+          qty: 1 
+        });
+      }
+
+      renderCart();
+    }
+
+    function changeQty(cartIndex, delta) {
+      const item = cart[cartIndex];
+      const product = products[item.productIndex];
+      const newQty = item.qty + delta;
+
+      if (newQty <= 0) {
+        cart.splice(cartIndex, 1);
+      } else if (newQty > product.stock) {
+        alert('Vượt quá số lượng tồn kho!');
+      } else {
+        item.qty = newQty;
+      }
+      renderCart();
+    }
+
+    function setCartQtyDirectly(cartIndex, value) {
+      let qty = parseInt(value);
+      const item = cart[cartIndex];
+      const product = products[item.productIndex];
+
+      if (isNaN(qty) || qty <= 0) qty = 1;
+
+      if (qty > product.stock) {
+        alert(`Kho chỉ còn ${product.stock} sản phẩm!`);
+        item.qty = product.stock;
+      } else {
+        item.qty = qty;
+      }
+      renderCart();
+    }
+
+    function setCartItemTotalDirectly(cartIndex, value) {
+      let newTotal = parseFloat(value);
+      const item = cart[cartIndex];
+      if (isNaN(newTotal) || newTotal < 0) newTotal = 0;
+      
+      if (item.qty > 0) {
+        item.sellPrice = Math.round(newTotal / item.qty);
+        if (item.listPrice > 0) {
+          item.discountOut = Math.round((1 - item.sellPrice / item.listPrice) * 100);
+        }
+      }
+      renderCart();
+    }
+
+    function renderCart() {
+      const cartTable = document.querySelector('#cart-table tbody');
+      cartTable.innerHTML = '';
+      let total = 0;
+
+      cart.forEach((item, index) => {
+        const itemTotal = item.sellPrice * item.qty;
+        total += itemTotal;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><b>${item.name}</b></td>
+          <td>${item.discountOut}%</td>
+          <td style="text-align: center;">
+            <button class="qty-btn" onclick="changeQty(${index}, -1)">-</button>
+            <input type="number" class="qty-input-box" value="${item.qty}" min="1" onchange="setCartQtyDirectly(${index}, this.value)">
+            <button class="qty-btn" onclick="changeQty(${index}, 1)">+</button>
+          </td>
+          <td>
+            <input type="number" class="total-input-box" value="${itemTotal}" onchange="setCartItemTotalDirectly(${index}, this.value)">đ
+          </td>
+          <td><button class="btn-danger" onclick="cart.splice(${index},1); renderCart();">x</button></td>
+        `;
+        cartTable.appendChild(tr);
+      });
+
+      document.getElementById('cart-total').innerText = formatMoney(total);
+    }
+
+    // 3. Thanh Toán & Lưu Hóa Đơn
+    document.getElementById('btn-checkout').addEventListener('click', () => {
+      const custName = document.getElementById('c-name').value.trim();
+      if (!custName) return alert('Vui lòng nhập Tên khách hàng!');
+      if (cart.length === 0) return alert('Giỏ hàng đang trống!');
+
+      const custId = document.getElementById('c-id').value.trim() || generateCustId();
+      const custPhone = document.getElementById('c-phone').value.trim() || '—';
+      const custAddress = document.getElementById('c-address').value.trim() || '—';
+      const isUnpaid = document.getElementById('unpaid-checkbox').checked;
+
+      let orderTotal = 0;
+      let orderCost = 0;
+      let orderItems = [];
+
+      cart.forEach(item => {
+        orderTotal += item.sellPrice * item.qty;
+        orderCost += item.costPrice * item.qty;
+        products[item.productIndex].stock -= item.qty;
+        
+        orderItems.push({ 
+          productIndex: item.productIndex,
+          name: item.name, 
+          qty: item.qty, 
+          listPrice: item.listPrice,
+          costPrice: item.costPrice,
+          discountOut: item.discountOut,
+          sellPrice: item.sellPrice, 
+          total: item.sellPrice * item.qty 
+        });
+      });
+
+      const orderProfit = orderTotal - orderCost;
+
+      if (editingOrderId) {
+        const index = orders.findIndex(o => o.id === editingOrderId);
+        if (index > -1) {
+          orders[index] = {
+            id: editingOrderId,
+            time: new Date().toLocaleString('vi-VN') + ' (Đã sửa)',
+            custId: custId,
+            customer: custName,
+            phone: custPhone,
+            address: custAddress,
+            items: orderItems,
+            total: orderTotal,
+            cost: orderCost,
+            profit: orderProfit,
+            unpaid: isUnpaid
+          };
+        }
+        alert(`Đã cập nhật xong hóa đơn cho khách [${custId}] ${custName}!`);
+        finishEditingMode();
+      } else {
+        const newOrder = {
+          id: 'HD' + Date.now().toString().slice(-4),
+          time: new Date().toLocaleString('vi-VN'),
+          custId: custId,
+          customer: custName,
+          phone: custPhone,
+          address: custAddress,
+          items: orderItems,
+          total: orderTotal,
+          cost: orderCost,
+          profit: orderProfit,
+          unpaid: isUnpaid
+        };
+        orders.unshift(newOrder);
+        alert(`Đã lưu thành công hóa đơn cho khách [${custId}] ${custName}`);
+      }
+
+      localStorage.setItem('orders_v13', JSON.stringify(orders));
+
+      // Reset
+      cart = [];
+      document.getElementById('c-id').value = generateCustId();
+      document.getElementById('c-name').value = '';
+      document.getElementById('c-phone').value = '';
+      document.getElementById('c-address').value = '';
+      document.getElementById('search-order').value = '';
+      document.getElementById('unpaid-checkbox').checked = false;
+      document.getElementById('sell-price-custom').value = '';
+      
+      renderCart();
+      renderProducts();
+      renderOrdersList();
+    });
+
+    function deleteOrder(orderId) {
+      const orderIndex = orders.findIndex(o => o.id === orderId);
+      if (orderIndex === -1) return;
+
+      const order = orders[orderIndex];
+
+      if (confirm(`Bạn có chắc chắn muốn XÓA hóa đơn của khách [${order.custId}] ${order.customer}?\n\n(Lưu ý: Số lượng các sản phẩm trong đơn sẽ được trả lại vào kho)`)) {
+        order.items.forEach(item => {
+          let p = products.find(prod => prod.name === item.name);
+          if (p) p.stock += item.qty;
+        });
+
+        orders.splice(orderIndex, 1);
+        localStorage.setItem('orders_v13', JSON.stringify(orders));
+
+        if (editingOrderId === orderId) {
+          finishEditingMode();
+          cart = [];
+          renderCart();
+        }
+
+        renderProducts();
+        renderOrdersList();
+        alert('Đã xóa hóa đơn và hoàn trả sản phẩm lại kho thành công!');
+      }
+    }
+
+    function togglePaymentStatus(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        order.unpaid = !order.unpaid;
+        localStorage.setItem('orders_v13', JSON.stringify(orders));
+        renderOrdersList();
+      }
+    }
+
+    // CHỨC NĂNG IN HÓA ĐƠN KÈM MÃ QR CODE TỰ ĐỘNG
+    function printInvoiceByOrderId(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (order) printInvoice(order);
+    }
+
+    function printInvoice(order) {
+      const printWindow = window.open('', '_blank', 'width=850,height=750');
+      const qrInvoiceUrl = `https://img.vietqr.io/image/${bankSettings.bankId}-${bankSettings.accNum}-compact2.png?amount=${order.total}&addInfo=&accountName=${encodeURIComponent(bankSettings.accName)}`;
+
+      let itemsHtml = order.items.map((item, index) => `
+        <tr>
+          <td style="text-align:center;">${index + 1}</td>
+          <td><b>${item.name}</b></td>
+          <td style="text-align:right;">${formatMoney(item.listPrice)}đ</td>
+          <td style="text-align:center;">${item.qty}</td>
+          <td style="text-align:center;">${item.discountOut}%</td>
+          <td style="text-align:right;"><b>${formatMoney(item.total)}đ</b></td>
+        </tr>
+      `).join('');
+
+      let unpaidWatermark = order.unpaid ? `
+        <div style="position: absolute; top: 35%; left: 20%; transform: rotate(-25deg); border: 5px solid #e74c3c; color: #e74c3c; font-size: 40px; font-weight: bold; padding: 10px 30px; border-radius: 12px; opacity: 0.35; pointer-events: none;">
+          NỢ / CHƯA THANH TOÁN
+        </div>
+      ` : '';
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Phiếu Giao Hàng - ${order.customer}</title>
+          <style>
+            * { box-sizing: border-box; font-family: 'Times New Roman', Times, serif; }
+            body { padding: 30px; font-size: 14px; line-height: 1.4; color: #000; position: relative; }
+            .header-table { width: 100%; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            .store-name { font-size: 18px; font-weight: bold; text-transform: uppercase; }
+            
+            .bill-title { text-align: center; font-size: 22px; font-weight: bold; text-transform: uppercase; margin: 15px 0 5px 0; }
+            .bill-date { text-align: center; font-style: italic; font-size: 13px; margin-bottom: 15px; }
+            
+            .info-box { width: 100%; margin-bottom: 15px; }
+            .info-box td { padding: 4px 0; vertical-align: top; }
+            
+            table.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            table.data-table th, table.data-table td { border: 1px solid #000; padding: 8px; font-size: 13px; }
+            table.data-table th { background: #f2f2f2; text-align: center; font-weight: bold; }
+            
+            .total-box { margin-top: 15px; text-align: right; font-size: 16px; font-weight: bold; }
+            
+            .qr-print-box { margin-top: 20px; border: 1px dashed #000; padding: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; }
+            .qr-print-box img { width: 130px; height: 130px; }
+            .qr-print-info { font-size: 13px; line-height: 1.5; text-align: left; }
+
+            .sign-table { width: 100%; margin-top: 30px; text-align: center; }
+            .sign-table td { width: 50%; vertical-align: top; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          ${unpaidWatermark}
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="store-name">NHÀ PHÂN PHỐI NHÃN HÀNG SMART TẠI THANH HÓA</div>
+                <div>Địa chỉ: Chung Cư Tân Thành ECO2 Phường Quảng Phú tỉnh Thanh Hóa</div>
+                <div>Điện thoại: 0984.960.860 - Hotline: 0927.86.36.36</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="bill-title">PHIẾU GIAO HÀNG & HÓA ĐƠN</div>
+          <div class="bill-date">Ngày tạo: ${order.time}</div>
+
+          <table class="info-box">
+            <tr>
+              <td style="width: 50%;"><b>Mã Khách Hàng:</b> [${order.custId}]</td>
+              <td style="width: 50%;"><b>Số Điện Thoại:</b> ${order.phone}</td>
+            </tr>
+            <tr>
+              <td><b>Tên Khách Hàng:</b> ${order.customer}</td>
+              <td><b>Địa Chỉ Giao Hàng:</b> ${order.address}</td>
+            </tr>
+            <tr>
+              <td colspan="2"><b>Trạng thái:</b> ${order.unpaid ? '<span style="color:red; font-weight:bold;">Chưa thanh toán (Ghi nợ)</span>' : '<span style="color:green; font-weight:bold;">Đã thanh toán</span>'}</td>
+            </tr>
+          </table>
+
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">STT</th>
+                <th>Tên Sản Phẩm / Tác Phẩm</th>
+                <th style="width: 90px;">Giá Niêm Yết</th>
+                <th style="width: 50px;">SL</th>
+                <th style="width: 60px;">CK Bán</th>
+                <th style="width: 110px;">Thành Tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="total-box">
+            TỔNG CỘNG THANH TOÁN: <span style="font-size: 18px; color: #000;">${formatMoney(order.total)} VNĐ</span>
+          </div>
+
+          <!-- MÃ QR CODE IN TRỰC TIẾP LÊN BILL -->
+          <div class="qr-print-box">
+            <div class="qr-print-info">
+              <b>MÃ QR CODE THANH TOÁN CHUYỂN KHOẢN</b><br>
+              • Ngân hàng: <b>${bankSettings.bankId}</b><br>
+              • Số TK: <b>${bankSettings.accNum}</b> (${bankSettings.accName})<br>
+              • Số tiền: <b>${formatMoney(order.total)} VNĐ</b><br>
+              • Nội dung CK: <b>(Để trống)</b>
+            </div>
+            <img src="${qrInvoiceUrl}" alt="QR Thanh Toan">
+          </div>
+
+          <table class="sign-table">
+            <tr>
+              <td>
+                <b>Khách Hàng Nhận Hàng</b><br>
+                <i>(Ký và ghi rõ họ tên)</i>
+              </td>
+              <td>
+                <b>Người Lập Phụ Trách</b><br>
+                <i>(Ký và ghi rõ họ tên)</i>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      printWindow.focus();
+      
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    }
+
+    function editOrder(orderId) {
+      if (editingOrderId) {
+        alert('Bạn đang sửa một đơn hàng khác!');
+        return;
+      }
+
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      editingOrderId = orderId;
+
+      order.items.forEach(item => {
+        let p = products.find(prod => prod.name === item.name);
+        if (p) p.stock += item.qty;
+      });
+      renderProducts();
+
+      document.getElementById('c-id').value = order.custId;
+      document.getElementById('c-name').value = order.customer;
+      document.getElementById('c-phone').value = order.phone;
+      document.getElementById('c-address').value = order.address;
+      document.getElementById('unpaid-checkbox').checked = !!order.unpaid;
+
+      cart = [];
+      order.items.forEach(item => {
+        let pIndex = products.findIndex(prod => prod.name === item.name);
+        cart.push({
+          productIndex: pIndex >= 0 ? pIndex : 0,
+          name: item.name,
+          listPrice: item.listPrice,
+          costPrice: item.costPrice,
+          discountOut: item.discountOut,
+          sellPrice: item.sellPrice,
+          qty: item.qty
+        });
+      });
+
+      renderCart();
+
+      document.getElementById('pos-card').classList.add('editing-mode');
+      document.getElementById('pos-title').innerText = `✏️ Đang Sửa Hóa Đơn Khách: [${order.custId}] ${order.customer}`;
+      document.getElementById('btn-checkout').innerText = '💾 Lưu Cập Nhật';
+      document.getElementById('btn-cancel-edit').style.display = 'block';
+    }
+
+    function cancelEditing() {
+      if (!editingOrderId) return;
+
+      const order = orders.find(o => o.id === editingOrderId);
+      if (order) {
+        order.items.forEach(item => {
+          let p = products.find(prod => prod.name === item.name);
+          if (p) p.stock -= item.qty;
+        });
+      }
+
+      finishEditingMode();
+      cart = [];
+      document.getElementById('c-id').value = generateCustId();
+      document.getElementById('c-name').value = '';
+      document.getElementById('c-phone').value = '';
+      document.getElementById('c-address').value = '';
+      document.getElementById('unpaid-checkbox').checked = false;
+      document.getElementById('sell-price-custom').value = '';
+      
+      renderCart();
+      renderProducts();
+    }
+
+    function finishEditingMode() {
+      editingOrderId = null;
+      document.getElementById('pos-card').classList.remove('editing-mode');
+      document.getElementById('pos-title').innerText = '2. Bán Hàng & Chọn Sản Phẩm';
+      document.getElementById('btn-checkout').innerText = 'Thanh Toán & Lưu Hóa Đơn';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      document.getElementById('unpaid-checkbox').checked = false;
+      document.getElementById('sell-price-custom').value = '';
+    }
+
+    // 4. Hiển thị Danh Sách Hóa Đơn (TÍCH LŨY THEO KHÁCH HÀNG & CÔNG NỢ)
+    function renderOrdersList() {
+      const container = document.getElementById('order-list-container');
+      const keyword = document.getElementById('search-order').value.toLowerCase().trim();
+      container.innerHTML = '';
+
+      let sumRevenue = 0;
+      let sumCost = 0;
+      let sumProfit = 0;
+      let sumUnpaid = 0;
+
+      orders.forEach(o => {
+        sumRevenue += o.total;
+        sumCost += o.cost;
+        sumProfit += o.profit;
+        if (o.unpaid) sumUnpaid += o.total;
+      });
+
+      document.getElementById('total-revenue').innerText = formatMoney(sumRevenue) + ' VNĐ';
+      document.getElementById('total-unpaid').innerText = formatMoney(sumUnpaid) + ' VNĐ';
+      document.getElementById('total-cost').innerText = formatMoney(sumCost) + ' VNĐ';
+      document.getElementById('total-profit').innerText = formatMoney(sumProfit) + ' VNĐ';
+
+      if (orders.length === 0) {
+        container.innerHTML = '<p style="color:#777; font-size: 13px;">Chưa có lịch sử hóa đơn.</p>';
+        return;
+      }
+
+      // Nhóm hóa đơn theo Tên khách hàng
+      const groupedMap = new Map();
+
+      orders.forEach(o => {
+        const key = o.customer.toLowerCase().trim();
+        if (!groupedMap.has(key)) {
+          groupedMap.set(key, {
+            customer: o.customer,
+            custId: o.custId,
+            phone: o.phone,
+            address: o.address,
+            accumulatedTotal: 0,
+            accumulatedProfit: 0,
+            accumulatedUnpaid: 0,
+            ordersList: []
+          });
+        }
+        const group = groupedMap.get(key);
+        group.accumulatedTotal += o.total;
+        group.accumulatedProfit += o.profit;
+        if (o.unpaid) group.accumulatedUnpaid += o.total;
+        group.ordersList.push(o);
+      });
+
+      // Lọc danh sách theo từ khóa tìm kiếm
+      const filteredGroups = Array.from(groupedMap.values()).filter(g => 
+        g.customer.toLowerCase().includes(keyword) ||
+        g.custId.toLowerCase().includes(keyword) ||
+        g.phone.toLowerCase().includes(keyword)
+      );
+
+      if (filteredGroups.length === 0) {
+        container.innerHTML = '<p style="color:#777; font-size: 13px;">Không tìm thấy lịch sử phù hợp.</p>';
+        return;
+      }
+
+      filteredGroups.forEach(g => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'order-item-card';
+
+        let subOrdersHtml = g.ordersList.map(o => {
+          let itemsStr = o.items.map(i => `${i.name} (x${i.qty})`).join(', ');
+          let statusBadge = o.unpaid 
+            ? `<span class="badge-unpaid">CHƯA TT</span>` 
+            : `<span class="badge-paid">ĐÃ TT</span>`;
+
+          return `
+            <div style="border-top: 1px dashed #ddd; margin-top: 6px; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <b>[${o.id}]</b> (${o.time}) ${statusBadge}<br>
+                <span style="color:#555;">${itemsStr}</span> = <b>${formatMoney(o.total)}đ</b>
+              </div>
+              <div>
+                <button class="btn-toggle-paid" onclick="togglePaymentStatus('${o.id}')">${o.unpaid ? '✓ Đã thu tiền' : '🚩 Đánh dấu nợ'}</button>
+                <button class="btn-print" onclick="printInvoiceByOrderId('${o.id}')">🖨️ In Bill</button>
+                <button class="btn-edit" onclick="editOrder('${o.id}')">✏️ Sửa</button>
+                <button class="btn-delete-order" onclick="deleteOrder('${o.id}')">🗑️ Xóa</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        let unpaidInfo = g.accumulatedUnpaid > 0 
+          ? `<br><b style="color:#e74c3c;">Tổng nợ còn lại: ${formatMoney(g.accumulatedUnpaid)} VNĐ</b>` 
+          : '';
+
+        itemDiv.innerHTML = `
+          <div class="order-item-header">
+            <span>👤 [${g.custId}] ${g.customer} (${g.ordersList.length} đơn)</span>
+            <div>
+              <b>Tích lũy: </b><span style="color:#2980b9; font-size:15px;">${formatMoney(g.accumulatedTotal)} VNĐ</span>
+            </div>
+          </div>
+          <div class="order-item-detail">
+            <b>SĐT:</b> ${g.phone} | <b>Địa chỉ:</b> ${g.address}<br>
+            <b class="text-green">Tổng lợi nhuận tích lũy: +${formatMoney(g.accumulatedProfit)} VNĐ</b>
+            ${unpaidInfo}
+            <div style="margin-top: 5px;">${subOrdersHtml}</div>
+          </div>
+        `;
+        container.appendChild(itemDiv);
+      });
+    }
+
+    // Xuất Excel
+    document.getElementById('btn-export-excel').addEventListener('click', () => {
+      if (orders.length === 0) return alert('Chưa có hóa đơn để xuất Excel!');
+
+      const excelData = [
+        ["Mã Hóa Đơn", "Mã KH", "Tên Khách Hàng", "SĐT", "Địa Chỉ", "Thời Gian", "Sản Phẩm Đã Mua", "Trạng Thái TT", "Doanh Thu (VNĐ)", "Giá Gốc (VNĐ)", "Lợi Nhuận (VNĐ)"]
+      ];
+
+      orders.forEach(o => {
+        let itemListStr = o.items.map(i => `${i.name} (CK ${i.discountOut}%, x${i.qty})`).join(', ');
+        let statusStr = o.unpaid ? 'Chưa thanh toán' : 'Đã thanh toán';
+        excelData.push([o.id, o.custId, o.customer, o.phone, o.address, o.time, itemListStr, statusStr, o.total, o.cost, o.profit]);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSachHoaDon");
+      XLSX.writeFile(workbook, `Bao_Cao_Ban_Hang_${Date.now()}.xlsx`);
+    });
+
+    // Khởi tạo
+    loadBankSettings();
+    renderProducts();
+    renderOrdersList();
+  </script>
+</body>
+</html>
